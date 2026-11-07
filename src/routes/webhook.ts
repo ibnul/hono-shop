@@ -44,6 +44,19 @@ app.post('/', async (c) => {
             }
             break
         }
+
+        case 'charge.refunded': {
+            const charge = event.data.object
+
+            for( const order of orders.values() ){
+                if(order.paymentIntentId === charge.payment_intent) {
+                    order.status = 'refunded'
+                    console.log(`Order ${order.id} is refunded`)
+                }
+            }
+        }
+
+        
     }
     
 

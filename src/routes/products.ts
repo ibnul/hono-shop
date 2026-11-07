@@ -18,7 +18,7 @@ app.get('/:id', (c) => {
   const product = products.find((p) => p.id === id )
 
   if(!product){
-    throw new HTTPException(404, {message: 'product not found'})
+    throw new HTTPException(404, {message: 'Product not found'})
   }
 
   return c.json(product)
