@@ -1,5 +1,6 @@
 import { Hono } from 'hono'
 import { logger } from 'hono/logger'
+import { prisma } from './lib/prisma.js'
 import products from './routes/products.js'
 import orders from './routes/orders.js'
 import checkout from './routes/checkout.js'
@@ -54,6 +55,52 @@ app.onError(async ( err, c) => {
     { error: { message: 'Something went wrong'}},
     500
   )
+})
+
+app.get('/api/health/db', async (c) => {
+  try {
+    await prisma.$queryRaw`SELECT 1`
+
+    return c.json({
+      database: 'connected',
+    })
+  } catch (error) {
+    console.error('Database connection failed:', error)
+
+    return c.json(
+      {
+        database: 'unavailable',
+      },
+      500,
+    )
+  }
+})
+
+
+app.get('/api/db/products', async (c) => {
+  try {
+    const products = await prisma.product.findMany({
+      where: {
+        active: true,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    })
+
+    return c.json(products)
+  } catch (error) {
+    console.error('Failed to load products:', error)
+
+    return c.json(
+      {
+        error: {
+          message: 'Could not load products',
+        },
+      },
+      500,
+    )
+  }
 })
 
 export default app
