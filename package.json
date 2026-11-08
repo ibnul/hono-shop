@@ -5,7 +5,11 @@
     "dev": "tsx watch --env-file=.env src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
-    "test": "vitest run"
+    "test": "vitest run",
+    "prisma:generate": "prisma generate --config prisma7.config.ts",
+    "predev": "npm run prisma:generate",
+    "prebuild": "npm run prisma:generate",
+    "pretest": "npm run prisma:generate"
   },
   "dependencies": {
     "@hono/node-server": "^2.1.3",

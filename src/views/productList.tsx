@@ -1,7 +1,9 @@
 
-import type { Product } from "../data/products.js";
+import type { Product } from '../generated/prisma/client.js'
 
-export const ProductList = ({ products } : { products: Product[] }) =>(
+type CatalogCard = Pick<Product, 'id' | 'name' | 'description' | 'price'>
+
+export const ProductList = ({ products } : { products: CatalogCard[] }) =>(
     <div class="grid">
         {products.map((product) => 
             <article class="card">

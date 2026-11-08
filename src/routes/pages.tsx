@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 import { z } from 'zod'
 import { validate  } from '../lib/validate.js'
 import { stripe, createCheckoutSession } from '../lib/stripe.js'
-import { products } from "../data/products.js"
+import { prisma } from '../lib/prisma.js'
 import { orders, createOrder } from '../store/orders.js'
 import { ProductList } from "../views/productList.js"
 import { Layout } from "../views/layout.js"
@@ -14,7 +14,13 @@ const buySchema = z.object({
 
 const app = new Hono()
 
-app.get('/', (c) => {
+app.get('/', async (c) => {
+    const products = await prisma.product.findMany({
+        where: { active: true },
+        select: { id: true, name: true, description: true, price: true },
+        orderBy: { id: 'asc' },
+    })
+
     return c.html(
         <Layout title="Hono Shop">
             <ProductList products={products} />
@@ -24,7 +30,7 @@ app.get('/', (c) => {
 
 app.post('/buy/:productId', validate('form', buySchema), async (c) => {
     const { quantity } = c.req.valid('form')
-    const order = createOrder(c.req.param('productId'), quantity)
+    const order = await createOrder(c.req.param('productId'), quantity)
     const session = await createCheckoutSession(order)
 
     return c.redirect(session.url!, 303)

@@ -15,11 +15,10 @@ const createOrderSchema = z.object({
 
 const app = new Hono()
 
-app.post('/', validate('json', createOrderSchema), (c) => {
-    //const body = await c.req.json()
+app.post('/', validate('json', createOrderSchema), async (c) => {
     const { productId, quantity } = c.req.valid('json')
 
-    const order = createOrder(productId, quantity)
+    const order = await createOrder(productId, quantity)
 
     return c.json(order, 201)
 

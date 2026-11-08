@@ -15,8 +15,9 @@ datasource db {
 model Product {
   id          String   @id
   name        String
-  description String?  @db.Text
+  description String   @db.Text
   price       Int
+  category    String
   currency    String   @default("usd") @db.VarChar(3)
   imageUrl    String?  @map("image_url")
   active      Boolean  @default(true)

@@ -1,11 +1,12 @@
 import { HTTPException } from "hono/http-exception"
-import { products } from "../data/products.js"
+import { prisma } from '../lib/prisma.js'
 
 export type OrderStatus = "pending" | "paid" | "refunded"
 
 export type Order = {
   id: string
   productId: string
+  productName: string
   quantity: number
   amount: number
   status: OrderStatus
@@ -15,8 +16,11 @@ export type Order = {
 
 export const orders = new Map<string, Order>()
 
-export function createOrder(productId: string, quantity: number) {
-  const product = products.find((p) => p.id === productId)
+export async function createOrder(productId: string, quantity: number) {
+  const product = await prisma.product.findUnique({
+    where: { id: productId, active: true },
+    select: { id: true, name: true, price: true },
+  })
 
   if (!product) {
     throw new HTTPException(404, {
@@ -26,7 +30,8 @@ export function createOrder(productId: string, quantity: number) {
 
   const order: Order = {
     id: crypto.randomUUID(),
-    productId,
+    productId: product.id,
+    productName: product.name,
     quantity,
     amount: product.price * quantity,
     status: "pending",

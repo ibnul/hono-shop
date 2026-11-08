@@ -1,5 +1,11 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import app from '../src/app.js'
+
+vi.mock('../src/lib/prisma.js', () => ({
+  prisma: {
+    product: { findUnique: vi.fn().mockResolvedValue(null) },
+  },
+}))
 
 describe('Hono Shop', () => {
   it('rejects an order with an invalid quantity', async () => {
@@ -22,4 +28,6 @@ describe('Hono Shop', () => {
     const res = await app.request('/webhook', { method: 'POST', body: '{}' })
     expect(res.status).toBe(400)
   })
+
+  
 })
