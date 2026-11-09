@@ -23,6 +23,158 @@ model Product {
   active      Boolean  @default(true)
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
+  orders      Order[]
+  wishlistItems WishlistItem[]
 
   @@map("products")
+}
+
+enum OrderStatus {
+  pending
+  paid
+  refunded
+}
+
+model Order {
+  id              String      @id @default(uuid())
+  productId       String?     @map("product_id")
+  product         Product?    @relation(fields: [productId], references: [id], onDelete: Restrict)
+  userId          String?     @map("user_id")
+  user            User?       @relation(fields: [userId], references: [id], onDelete: Restrict)
+  refundRequest   RefundRequest?
+  items           OrderItem[]
+  cartCheckoutKey String?     @unique @map("cart_checkout_key") @db.VarChar(64)
+  productName     String      @map("product_name")
+  quantity        Int
+  amount          Int
+  status          OrderStatus @default(pending)
+  sessionId       String?     @unique @map("stripe_session_id")
+  paymentIntentId String?     @unique @map("stripe_payment_intent_id")
+  createdAt       DateTime    @default(now()) @map("created_at")
+  updatedAt       DateTime    @updatedAt @map("updated_at")
+
+  @@index([productId])
+  @@index([userId, createdAt])
+  @@map("orders")
+}
+
+model OrderItem {
+  orderId     String @map("order_id")
+  order       Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId   String @map("product_id")
+  productName String @map("product_name")
+  quantity    Int
+  unitPrice   Int    @map("unit_price")
+
+  @@id([orderId, productId])
+  @@map("order_items")
+}
+
+model User {
+  id            String    @id
+  name          String
+  email         String    @unique
+  emailVerified Boolean   @default(false) @map("email_verified")
+  image         String?   @db.Text
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  sessions      Session[]
+  accounts      Account[]
+  stripeCustomerId String? @unique @map("stripe_customer_id")
+  orders        Order[]
+  wishlistItems WishlistItem[]
+
+  @@map("auth_users")
+}
+
+model Session {
+  id        String   @id
+  token     String   @unique
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  ipAddress String?  @map("ip_address")
+  userAgent String?  @db.Text @map("user_agent")
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("auth_sessions")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String    @map("account_id")
+  providerId            String    @map("provider_id")
+  userId                String    @map("user_id")
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?   @db.Text @map("access_token")
+  refreshToken          String?   @db.Text @map("refresh_token")
+  idToken               String?   @db.Text @map("id_token")
+  accessTokenExpiresAt  DateTime? @map("access_token_expires_at")
+  refreshTokenExpiresAt DateTime? @map("refresh_token_expires_at")
+  scope                 String?   @db.Text
+  password              String?   @db.Text
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+
+  @@unique([providerId, accountId])
+  @@index([userId])
+  @@map("auth_accounts")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String   @db.Text
+  expiresAt  DateTime @map("expires_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@index([identifier])
+  @@map("auth_verifications")
+}
+
+model WishlistItem {
+  userId    String   @map("user_id")
+  productId String   @map("product_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@id([userId, productId])
+  @@index([productId])
+  @@map("wishlist_items")
+}
+
+enum RefundRequestStatus {
+  pending
+  processing
+  approved
+  rejected
+}
+
+model RefundRequest {
+  id             String              @id @default(uuid())
+  orderId        String              @unique @map("order_id")
+  order          Order               @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  reason         String              @db.Text
+  status         RefundRequestStatus @default(pending)
+  rejectionNote  String?             @db.Text @map("rejection_note")
+  stripeRefundId String?             @map("stripe_refund_id")
+  evidence       RefundEvidence?
+  createdAt      DateTime            @default(now()) @map("created_at")
+  updatedAt      DateTime            @updatedAt @map("updated_at")
+
+  @@index([status, createdAt])
+  @@map("refund_requests")
+}
+
+model RefundEvidence {
+  requestId String        @id @map("request_id")
+  request   RefundRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  mimeType  String        @map("mime_type")
+  content   Bytes         @db.LongBlob
+
+  @@map("refund_evidence")
 }

@@ -1,12 +1,13 @@
 import { Hono } from 'hono'
+import { getCustomerSession } from '../lib/auth.js'
 import { z } from 'zod'
 
-import { orders, createOrder } from '../store/orders.js'
+import { createOrder, findOrder } from '../store/orders.js'
 import { validate } from '../lib/validate.js'
 import { HTTPException } from 'hono/http-exception'
 import { bearerAuth } from 'hono/bearer-auth'
 import { env } from '../env.js'
-import { stripe } from '../lib/stripe.js'
+import { refundOrder } from '../lib/stripe.js'
 
 const createOrderSchema = z.object({
     productId: z.string(),
@@ -18,7 +19,8 @@ const app = new Hono()
 app.post('/', validate('json', createOrderSchema), async (c) => {
     const { productId, quantity } = c.req.valid('json')
 
-    const order = await createOrder(productId, quantity)
+    const session = await getCustomerSession(c.req.raw.headers)
+    const { userId: _owner, items: _items, ...order } = await createOrder(productId, quantity, session?.user.id)
 
     return c.json(order, 201)
 
@@ -26,28 +28,20 @@ app.post('/', validate('json', createOrderSchema), async (c) => {
 })
 
 
-app.get('/:id', (c) => {
-    const order = orders.get(c.req.param('id'))
-    if(!order) {
-        throw new HTTPException(404, {message: 'Order not found'})
+app.get('/:id', async (c) => {
+    const order = await findOrder(c.req.param('id'))
+    const session = order?.userId ? await getCustomerSession(c.req.raw.headers) : null
+    if (!order || (order.userId && order.userId !== session?.user.id)) {
+        throw new HTTPException(404, { message: 'Order not found' })
     }
 
-    return c.json(order)
+    if (order.userId) c.header('Cache-Control', 'no-store')
+    const { userId: _owner, items, ...publicOrder } = order
+    return c.json({ ...publicOrder, ...(items?.length && { items }) })
 })
 
 app.post('/:id/refund', bearerAuth({ token: env.ADMIN_TOKEN }), async (c) => {
-    const order = orders.get(c.req.param('id'))
-
-    if(!order) {
-        throw new HTTPException(404, { message: 'Order Not Found'})
-    }
-
-    if ( order.status !== 'paid' || !order.paymentIntentId) {
-        throw new HTTPException(409, { message: `Only paid orders can be refunded. Order id: ${order.id}`})
-    }
-
-    const refund = await stripe.refunds.create({ payment_intent: order.paymentIntentId })
-
+    const refund = await refundOrder(c.req.param('id'))
     return c.json({ refundId: refund.id, status: refund.status})
 })
 
