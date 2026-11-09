@@ -1,9 +1,10 @@
 import { Hono } from 'hono'
+import { getCustomerSession } from '../lib/auth.js'
 import { z } from 'zod'
 import { HTTPException } from "hono/http-exception"
 import { validate  } from '../lib/validate.js'
 import { createCheckoutSession } from '../lib/stripe.js'
-import { orders } from '../store/orders.js'
+import { findOrder } from '../store/orders.js'
 
 
 const checkoutSchema = z.object({
@@ -14,9 +15,10 @@ const app = new Hono()
 
 app.post('/', validate('json', checkoutSchema), async (c) => {
     const { orderId } = c.req.valid('json')
-    const order = orders.get(orderId)
+    const order = await findOrder(orderId)
 
-    if(!order){
+    const customerSession = order?.userId ? await getCustomerSession(c.req.raw.headers) : null
+    if (!order || (order.userId && order.userId !== customerSession?.user.id)) {
         throw new HTTPException(404, {message: 'Order not found'})
     }
 

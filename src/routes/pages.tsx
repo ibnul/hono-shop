@@ -1,9 +1,14 @@
 import { Hono } from 'hono'
+import { csrf } from 'hono/csrf'
+import { HTTPException } from 'hono/http-exception'
+import { authOrigin, getCustomerSession } from '../lib/auth.js'
+import { cartQuantity, clearPurchasedCart, readCart } from '../lib/cart.js'
+import { accountsEnabled } from '../env.js'
 import { z } from 'zod'
 import { validate  } from '../lib/validate.js'
 import { stripe, createCheckoutSession } from '../lib/stripe.js'
-import { products } from "../data/products.js"
-import { orders, createOrder } from '../store/orders.js'
+import { prisma } from '../lib/prisma.js'
+import { createOrder, findOrder } from '../store/orders.js'
 import { ProductList } from "../views/productList.js"
 import { Layout } from "../views/layout.js"
 import { Success } from '../views/success.js'
@@ -13,18 +18,34 @@ const buySchema = z.object({
 })
 
 const app = new Hono()
+const checkoutCsrf = csrf({ origin: authOrigin })
 
-app.get('/', (c) => {
+app.get('/', async (c) => {
+    const customer = await getCustomerSession(c.req.raw.headers)
+    const products = await prisma.product.findMany({
+        where: { active: true },
+        select: { id: true, name: true, description: true, price: true },
+        orderBy: { id: 'asc' },
+    })
+
+    const saved = customer ? await prisma.wishlistItem.findMany({
+        where: { userId: customer.user.id },
+        select: { productId: true },
+    }) : []
+    c.header('Cache-Control', 'private, no-store')
+
     return c.html(
-        <Layout title="Hono Shop">
-            <ProductList products={products} />
+        <Layout title="Hono Shop" showAccount={accountsEnabled} cartCount={cartQuantity(readCart(c))}>
+            <ProductList products={products} savedIds={customer ? new Set(saved.map((item) => item.productId)) : undefined} />
         </Layout>,
     )
 })
 
 app.post('/buy/:productId', validate('form', buySchema), async (c) => {
     const { quantity } = c.req.valid('form')
-    const order = createOrder(c.req.param('productId'), quantity)
+    const customer = await getCustomerSession(c.req.raw.headers)
+    if (customer) await checkoutCsrf(c, async () => {})
+    const order = await createOrder(c.req.param('productId'), quantity, customer?.user.id)
     const session = await createCheckoutSession(order)
 
     return c.redirect(session.url!, 303)
@@ -37,11 +58,23 @@ app.get('/success', async (c) => {
     }
 
     const session = await stripe.checkout.sessions.retrieve(sessionId)
-    const order = orders.get(session.metadata?.orderId ?? '')
+    const orderId = session.metadata?.orderId
+    const order = orderId ? await findOrder(orderId) : null
+    if (order?.userId) {
+        const customer = await getCustomerSession(c.req.raw.headers)
+        if (order.userId !== customer?.user.id) {
+            throw new HTTPException(404, { message: 'Order not found' })
+        }
+    }
+    if (order?.items?.length && order.sessionId === session.id && session.payment_status === 'paid'
+        && session.amount_total === order.amount && session.currency === 'usd') {
+        clearPurchasedCart(c, order.id, order.items)
+    }
+    c.header('Cache-Control', 'no-store')
 
     return c.html(
         <Layout title="Payment Received">
-            <Success session={session} order={order} />
+            <Success session={session} order={order ?? undefined} />
         </Layout>,
     )
 })

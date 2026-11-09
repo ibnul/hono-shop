@@ -1,8 +1,8 @@
 import { Hono } from 'hono'
-import { stripe } from '../lib/stripe.js'
+import { stripe, syncPaymentRefund } from '../lib/stripe.js'
 import type Stripe from 'stripe'
 import { env } from '../env.js'
-import { orders } from '../store/orders.js'
+import { prisma } from '../lib/prisma.js'
 
 const app = new Hono()
 
@@ -27,33 +27,53 @@ app.post('/', async (c) => {
     }
 
     switch (event.type){
-        case 'checkout.session.completed': {
+        case 'checkout.session.completed':
+        case 'checkout.session.async_payment_succeeded': {
             const session = event.data.object
-            const order = orders.get(session.metadata?.orderId ?? '')
-            if (!order)
-                break
+            const orderId = session.metadata?.orderId
+            const paymentIntentId = typeof session.payment_intent === 'string'
+                ? session.payment_intent
+                : session.payment_intent?.id
 
-            if( order.status === 'paid' ){
-                console.log(`Order ${order.id} is already paid, skipping`)
-                break
-            }
-            if(session.payment_status === 'paid') {
-                order.status = "paid"
-                order.paymentIntentId = session.payment_intent as string
-                console.log(`Order ${order.id} is paid`)
-            }
+            if (!orderId || !paymentIntentId || session.payment_status !== 'paid' ||
+                session.amount_total === null || session.currency !== 'usd') break
+
+            await prisma.order.updateMany({
+                where: {
+                    id: orderId,
+                    status: 'pending',
+                    amount: session.amount_total,
+                    OR: [{ sessionId: session.id }, { sessionId: null }],
+                },
+                data: { status: 'paid', paymentIntentId, sessionId: session.id },
+            })
             break
         }
 
         case 'charge.refunded': {
             const charge = event.data.object
 
-            for( const order of orders.values() ){
-                if(order.paymentIntentId === charge.payment_intent) {
-                    order.status = 'refunded'
-                    console.log(`Order ${order.id} is refunded`)
-                }
+            const paymentIntentId = typeof charge.payment_intent === 'string'
+                ? charge.payment_intent
+                : charge.payment_intent?.id
+
+            if (!paymentIntentId || !charge.refunded) break
+
+            await syncPaymentRefund(paymentIntentId)
+            break
+        }
+
+        case 'refund.created':
+        case 'refund.updated': {
+            const refund = event.data.object
+            const paymentIntentId = typeof refund.payment_intent === 'string'
+                ? refund.payment_intent
+                : refund.payment_intent?.id
+
+            if (paymentIntentId && refund.status === 'succeeded') {
+                await syncPaymentRefund(paymentIntentId)
             }
+            break
         }
 
         
