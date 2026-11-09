@@ -4,7 +4,7 @@ import type { Context } from 'hono'
 import { bodyLimit } from 'hono/body-limit'
 import { csrf } from 'hono/csrf'
 import { z } from 'zod'
-import { env, localAccountHostname } from '../env.js'
+import { accountsEnabled, env } from '../env.js'
 import { getCustomerSession } from '../lib/auth.js'
 import { cartQuantity, maxCartQuantity, readCart, rememberCartCheckout, writeCart } from '../lib/cart.js'
 import { prisma } from '../lib/prisma.js'
@@ -44,7 +44,7 @@ async function renderCart(c: Context, cart: Map<string, number>, error?: string)
 
   const rows = await cartRows(cart)
   return c.html(
-    <ShoppingCart rows={rows} error={error} showAccount={Boolean(localAccountHostname)} checkoutAttempt={randomUUID()} />,
+    <ShoppingCart rows={rows} error={error} showAccount={accountsEnabled} checkoutAttempt={randomUUID()} />,
     error ? 409 : 200,
   )
 }

@@ -59,6 +59,28 @@ it('asks the browser for credentials before listing products', async () => {
   expect(await response.text()).toContain('Add product')
 })
 
+it('requires the HTTPS proxy and admin credentials for the public admin catalog', async () => {
+  vi.stubEnv('APP_URL', 'https://shop.example.com')
+  vi.stubEnv('TRUST_LOCAL_HTTPS_PROXY', 'true')
+  vi.stubEnv('ENABLE_HTTPS_ADMIN', 'true')
+  const token = 'test-admin-token-with-at-least-32-characters'
+  vi.stubEnv('ADMIN_TOKEN', token)
+  const { default: app } = await import('../src/app.js')
+  const { listenHostname } = await import('../src/env.js')
+  expect(listenHostname).toBe('127.0.0.1')
+
+  const headers = { 'x-forwarded-proto': 'https', 'x-hono-client-ip': '198.51.100.10' }
+  expect((await app.request(path)).status).toBe(403)
+  expect((await app.request(path, { headers: { ...headers, 'x-forwarded-proto': 'http' } })).status).toBe(403)
+  expect((await app.request(path, { headers: { ...headers, 'x-hono-client-ip': 'spoofed' } })).status).toBe(403)
+  expect((await app.request(path, { headers })).status).toBe(401)
+  expect(product.findMany).not.toHaveBeenCalled()
+
+  const response = await app.request(path, { headers: { ...headers, authorization: `Basic ${btoa(`admin:${token}`)}` } })
+  expect(response.status).toBe(200)
+  expect(response.headers.get('Cache-Control')).toBe('no-store')
+})
+
 it('rejects unauthenticated and cross-origin product submissions', async () => {
   const { default: app } = await import('../src/app.js')
   const body = new URLSearchParams(fields)

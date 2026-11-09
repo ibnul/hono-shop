@@ -3,7 +3,8 @@ import type { Context } from 'hono'
 import { bodyLimit } from 'hono/body-limit'
 import { csrf } from 'hono/csrf'
 import { z } from 'zod'
-import { authBasePath, authOrigin, localAuthIpHeader } from '../lib/auth.js'
+import { trustLocalHttpsProxy } from '../env.js'
+import { authBasePath, authIpHeader, authOrigin } from '../lib/auth.js'
 import type { customerAuth } from '../lib/auth.js'
 import { AccountForm, AccountHome } from '../views/account.js'
 import customerShop from './customerShop.js'
@@ -29,7 +30,7 @@ export function createAccountRoutes(auth: NonNullable<typeof customerAuth>) {
     const headers = new Headers(c.req.raw.headers)
     headers.set('Content-Type', 'application/json')
     headers.delete('Content-Length')
-    headers.set(localAuthIpHeader, '127.0.0.1')
+    if (!trustLocalHttpsProxy) headers.set(authIpHeader, '127.0.0.1')
     return auth.handler(new Request(`${authOrigin}${authBasePath}${endpoint}`, {
       method: 'POST',
       headers,

@@ -1,13 +1,13 @@
 import { prismaAdapter } from '@better-auth/prisma-adapter'
 import { betterAuth } from 'better-auth'
-import { env, localAccountHostname } from '../env.js'
+import { accountsEnabled, env } from '../env.js'
 import { prisma } from './prisma.js'
 
-export const authOrigin = new URL(env.APP_URL).origin
+export const authOrigin = env.APP_URL
 export const authBasePath = '/api/auth'
-export const localAuthIpHeader = 'x-hono-local-auth-ip'
+export const authIpHeader = 'x-hono-client-ip'
 
-export const customerAuth = localAccountHostname && env.BETTER_AUTH_SECRET
+export const customerAuth = accountsEnabled && env.BETTER_AUTH_SECRET
   ? betterAuth({
       appName: 'Hono Shop',
       baseURL: authOrigin,
@@ -17,7 +17,10 @@ export const customerAuth = localAccountHostname && env.BETTER_AUTH_SECRET
       emailAndPassword: { enabled: true, minPasswordLength: 12, maxPasswordLength: 128 },
       session: { disableSessionRefresh: true },
       rateLimit: { enabled: true },
-      advanced: { ipAddress: { ipAddressHeaders: [localAuthIpHeader] } },
+      advanced: {
+        useSecureCookies: authOrigin.startsWith('https://'),
+        ipAddress: { ipAddressHeaders: [authIpHeader] },
+      },
     })
   : null
 

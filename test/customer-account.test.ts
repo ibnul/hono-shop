@@ -94,7 +94,7 @@ it('blocks cross-origin registration and rejects short passwords', async () => {
   expect(database.user).toHaveLength(0)
 })
 
-it('keeps customer routes disabled without a secret or with a public app URL', async () => {
+it('keeps customer routes disabled without a secret or on a public URL without HTTPS proxy mode', async () => {
   vi.stubEnv('BETTER_AUTH_SECRET', undefined)
   const { default: disabledApp } = await import('../src/app.js')
   expect((await disabledApp.request('/account')).status).toBe(404)
@@ -104,4 +104,34 @@ it('keeps customer routes disabled without a secret or with a public app URL', a
   vi.stubEnv('APP_URL', 'https://shop.example.com')
   const { default: publicApp } = await import('../src/app.js')
   expect((await publicApp.request('/account/register')).status).toBe(404)
+})
+
+it('sets a secure customer session and rate-limits sign-in by the proxy client IP', async () => {
+  const origin = 'https://shop.example.com'
+  vi.stubEnv('APP_URL', origin)
+  vi.stubEnv('TRUST_LOCAL_HTTPS_PROXY', 'true')
+  const { default: app } = await import('../src/app.js')
+  const headers = { origin, 'x-forwarded-proto': 'https', 'x-hono-client-ip': '198.51.100.10' }
+  const post = (path: string, values: Record<string, string>, extraHeaders?: HeadersInit) =>
+    app.request(path, form(values, { ...headers, ...extraHeaders }))
+
+  const registration = await post('/account/register', customer)
+  expect(registration.status).toBe(303)
+  const cookie = registration.headers.getSetCookie().find((value) =>
+    value.startsWith('__Secure-better-auth.session_token='))
+  expect(cookie).toContain('Secure')
+  expect(cookie).toContain('HttpOnly')
+  expect(cookie).toContain('SameSite=Lax')
+
+  const account = await app.request('/account', { headers: { ...headers, cookie: cookie!.split(';', 1)[0] } })
+  expect(account.status).toBe(200)
+  expect(await account.text()).toContain('Desk Shopper')
+
+  const login = { email: 'someone-else@example.com', password }
+  let status: number = 401
+  for (let attempt = 0; attempt < 10 && status === 401; attempt++) {
+    status = (await post('/account/sign-in', login, { 'x-forwarded-for': `203.0.113.${attempt + 1}` })).status
+  }
+  expect(status).toBe(429)
+  expect((await post('/account/sign-in', login, { 'x-hono-client-ip': '198.51.100.11' })).status).toBe(401)
 })

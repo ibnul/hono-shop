@@ -3,7 +3,7 @@ import { csrf } from 'hono/csrf'
 import { HTTPException } from 'hono/http-exception'
 import { authOrigin, getCustomerSession } from '../lib/auth.js'
 import { cartQuantity, clearPurchasedCart, readCart } from '../lib/cart.js'
-import { localAccountHostname } from '../env.js'
+import { accountsEnabled } from '../env.js'
 import { z } from 'zod'
 import { validate  } from '../lib/validate.js'
 import { stripe, createCheckoutSession } from '../lib/stripe.js'
@@ -35,7 +35,7 @@ app.get('/', async (c) => {
     c.header('Cache-Control', 'private, no-store')
 
     return c.html(
-        <Layout title="Hono Shop" showAccount={Boolean(localAccountHostname)} cartCount={cartQuantity(readCart(c))}>
+        <Layout title="Hono Shop" showAccount={accountsEnabled} cartCount={cartQuantity(readCart(c))}>
             <ProductList products={products} savedIds={customer ? new Set(saved.map((item) => item.productId)) : undefined} />
         </Layout>,
     )

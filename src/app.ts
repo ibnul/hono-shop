@@ -1,8 +1,9 @@
+import { isIP } from 'node:net'
 import { Hono } from 'hono'
 import { logger } from 'hono/logger'
 import { basicAuth } from 'hono/basic-auth'
-import { env, localAdminHostname } from './env.js'
-import { customerAuth } from './lib/auth.js'
+import { adminEnabled, env, trustLocalHttpsProxy } from './env.js'
+import { authIpHeader, customerAuth } from './lib/auth.js'
 import { prisma } from './lib/prisma.js'
 import products from './routes/products.js'
 import orders from './routes/orders.js'
@@ -30,6 +31,14 @@ app.use(logger())
 app.use(timing)
 app.use(requestId())
 app.use(secureHeaders())
+if (trustLocalHttpsProxy) {
+  app.use('*', async (c, next) => {
+    if (c.req.header('X-Forwarded-Proto') !== 'https' || !isIP(c.req.header(authIpHeader) ?? '')) {
+      return c.text('HTTPS proxy required', 403)
+    }
+    await next()
+  })
+}
 app.use('/api/*', cors() )
 app.use('/public/*', serveStatic({ root: './' }))
 
@@ -41,7 +50,7 @@ api.route('/checkout', checkout)
 
 app.route('/', api)
 app.route('/webhook', webhook)
-if (localAdminHostname) {
+if (adminEnabled) {
   const admin = new Hono()
   admin.use('*', async (c, next) => {
     c.header('Cache-Control', 'no-store')
