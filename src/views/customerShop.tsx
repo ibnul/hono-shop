@@ -27,7 +27,7 @@ type Purchase = {
 const orderDate = new Intl.DateTimeFormat('en', { dateStyle: 'medium', timeZone: 'UTC' })
 
 export const AccountOrders = ({ orders }: { orders: Purchase[] }) => (
-  <Layout title="Purchase history" showAccount>
+  <Layout title="Purchase history" accountNav="customer">
     <section class="card">
       <h1>Purchase history</h1>
       <AccountLinks />
@@ -56,7 +56,7 @@ export const CustomerRefund = ({ order, error, reason }: {
   error?: string
   reason?: string
 }) => (
-  <Layout title="Refund request" showAccount>
+  <Layout title="Refund request" accountNav="customer">
     <section class="card account-card">
       <h1>{order.refundRequest ? 'Refund request' : 'Request a refund'}</h1>
       <p><strong>{order.productName}</strong> · ${(order.amount / 100).toFixed(2)}</p>
@@ -111,7 +111,7 @@ export const WishlistButton = ({ productId, saved, returnTo }: {
 export const Wishlist = ({ items }: {
   items: { product: { id: string; name: string; price: number; active: boolean } }[]
 }) => (
-  <Layout title="Wishlist" showAccount>
+  <Layout title="Wishlist" accountNav="customer">
     <section class="card">
       <h1>Wishlist</h1>
       <AccountLinks />

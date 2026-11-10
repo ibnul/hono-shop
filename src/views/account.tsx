@@ -1,7 +1,7 @@
 import { Layout } from './layout.js'
 
 export const AccountForm = ({ registering, error }: { registering: boolean; error?: string }) => (
-  <Layout title={registering ? 'Create account' : 'Sign in'} showAccount>
+  <Layout title={registering ? 'Create account' : 'Sign in'} accountNav="guest">
     <section class="card account-card">
       <h1>{registering ? 'Create account' : 'Sign in'}</h1>
       {error && <p class="account-error" role="alert">{error}</p>}
@@ -31,7 +31,7 @@ export const AccountForm = ({ registering, error }: { registering: boolean; erro
 )
 
 export const AccountHome = ({ user }: { user: { name: string; email: string } }) => (
-  <Layout title="My account" showAccount>
+  <Layout title="My account" accountNav="customer">
     <section class="card account-card">
       <h1>My account</h1>
       <p>Signed in as <strong>{user.name}</strong></p>

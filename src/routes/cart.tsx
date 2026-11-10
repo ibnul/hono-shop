@@ -43,8 +43,10 @@ async function renderCart(c: Context, cart: Map<string, number>, error?: string)
   }
 
   const rows = await cartRows(cart)
+  const customer = await getCustomerSession(c.req.raw.headers)
+  const accountNav = accountsEnabled ? (customer ? 'customer' : 'guest') : undefined
   return c.html(
-    <ShoppingCart rows={rows} error={error} showAccount={accountsEnabled} checkoutAttempt={randomUUID()} />,
+    <ShoppingCart rows={rows} error={error} accountNav={accountNav} checkoutAttempt={randomUUID()} />,
     error ? 409 : 200,
   )
 }

@@ -8,7 +8,10 @@ const database = vi.hoisted(() => ({
 }))
 
 vi.mock('../src/lib/prisma.js', () => ({
-  prisma: { product: { findMany: vi.fn().mockResolvedValue([]) } },
+  prisma: {
+    product: { findMany: vi.fn().mockResolvedValue([{ id: 'mug', name: 'Mug', description: 'Ceramic mug', price: 950 }]) },
+    wishlistItem: { findMany: vi.fn().mockResolvedValue([]) },
+  },
 }))
 
 vi.mock('@better-auth/prisma-adapter', async () => {
@@ -47,8 +50,13 @@ it('registers, signs out, and signs back in through the customer forms', async (
   vi.stubEnv('ENABLE_LOCAL_ADMIN', 'true')
   const { default: app } = await import('../src/app.js')
 
-  const shop = await app.request('/')
-  expect(await shop.text()).toContain('href="/account"')
+  for (const path of ['/', '/cart']) {
+    const html = await (await app.request(path)).text()
+    expect(html).toContain('href="/account/sign-in">Log in')
+    expect(html).toContain('href="/account/register">Register')
+    expect(html).not.toContain('href="/account">My account')
+    expect(html).not.toContain('action="/account/wishlist/mug"')
+  }
 
   const guest = await app.request('/account')
   expect(guest.headers.get('Location')).toBe('/account/sign-in')
@@ -60,13 +68,21 @@ it('registers, signs out, and signs back in through the customer forms', async (
   expect(database.account[0]?.password).toEqual(expect.any(String))
   expect(database.account[0]?.password).not.toBe(password)
 
+  for (const path of ['/', '/cart']) {
+    const html = await (await app.request(path, { headers: { cookie: firstCookie } })).text()
+    expect(html).toContain('href="/account">My account')
+    expect(html).not.toContain('href="/account/sign-in">Log in')
+    expect(html).not.toContain('href="/account/register">Register')
+    if (path === '/') expect(html).toContain('action="/account/wishlist/mug"')
+  }
+
   const account = await app.request('/account', { headers: { cookie: firstCookie } })
   expect(account.status).toBe(200)
   expect(account.headers.get('Cache-Control')).toBe('no-store')
   const html = await account.text()
   expect(html).toContain('Desk Shopper')
   expect(html).toContain('shopper@example.com')
-  expect((await app.request('/admin/orders', { headers: { cookie: firstCookie } })).status).toBe(401)
+  expect((await app.request('/admin/orders', { headers: { cookie: firstCookie } })).status).toBe(303)
 
   const logout = await app.request('/account/sign-out', form({}, { cookie: firstCookie }))
   expect(logout.status).toBe(303)
@@ -104,6 +120,9 @@ it('keeps customer routes disabled without a secret or on a public URL without H
   vi.stubEnv('APP_URL', 'https://shop.example.com')
   const { default: publicApp } = await import('../src/app.js')
   expect((await publicApp.request('/account/register')).status).toBe(404)
+  const shop = await (await publicApp.request('/')).text()
+  expect(shop).not.toContain('href="/account/sign-in"')
+  expect(shop).not.toContain('href="/account/register"')
 })
 
 it('sets a secure customer session and rate-limits sign-in by the proxy client IP', async () => {

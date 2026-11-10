@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { adminSessionHeaders } from './helpers/admin-session.js'
 
 const { findMany, findUnique, updateMany } = vi.hoisted(() => ({
   findMany: vi.fn(),
@@ -29,7 +30,6 @@ const formHeaders = {
   origin: 'http://localhost:3000',
   'Content-Type': 'application/x-www-form-urlencoded',
 }
-const headers = { authorization: `Basic ${btoa('admin:test-admin-token-123456')}` }
 
 beforeEach(() => {
   vi.resetModules()
@@ -48,7 +48,7 @@ it('does not expose the order list when local admin is disabled', async () => {
   vi.stubEnv('ENABLE_LOCAL_ADMIN', 'false')
   const { default: app } = await import('../src/app.js')
 
-  expect((await app.request(path, { headers })).status).toBe(404)
+  expect((await app.request(path)).status).toBe(404)
   expect(findMany).not.toHaveBeenCalled()
 })
 
@@ -56,8 +56,8 @@ it('requires admin credentials before querying orders', async () => {
   const { default: app } = await import('../src/app.js')
   const response = await app.request(path)
 
-  expect(response.status).toBe(401)
-  expect(response.headers.get('WWW-Authenticate')).toBe('Basic realm="Hono Shop Admin"')
+  expect(response.status).toBe(303)
+  expect(response.headers.get('Location')).toBe('/admin/login?next=%2Fadmin%2Forders')
   expect(findMany).not.toHaveBeenCalled()
 })
 
@@ -69,6 +69,7 @@ it('filters by status in the database and renders the latest matching orders', a
   }])
 
   const { default: app } = await import('../src/app.js')
+  const headers = await adminSessionHeaders(app)
   const response = await app.request(`${path}?status=paid`, { headers })
 
   expect(response.status).toBe(200)
@@ -88,6 +89,7 @@ it('filters by status in the database and renders the latest matching orders', a
 
 it('rejects unknown statuses without querying orders', async () => {
   const { default: app } = await import('../src/app.js')
+  const headers = await adminSessionHeaders(app)
 
   expect((await app.request(`${path}?status=unknown`, { headers })).status).toBe(400)
   expect(findMany).not.toHaveBeenCalled()
@@ -95,6 +97,7 @@ it('rejects unknown statuses without querying orders', async () => {
 
 it('opens a confirmation page without creating a Stripe refund', async () => {
   const { default: app } = await import('../src/app.js')
+  const headers = await adminSessionHeaders(app)
   const { stripe } = await import('../src/lib/stripe.js')
   const createRefund = vi.spyOn(stripe.refunds, 'create').mockRejectedValue(new Error('Unexpected request'))
 
@@ -107,6 +110,7 @@ it('opens a confirmation page without creating a Stripe refund', async () => {
 
 it('blocks refund requests without admin credentials or from a different origin', async () => {
   const { default: app } = await import('../src/app.js')
+  const headers = await adminSessionHeaders(app)
 
   const unauthorized = await app.request(refundPath, { method: 'POST', headers: formHeaders })
   expect(unauthorized.status).toBe(401)
@@ -121,6 +125,7 @@ it('blocks refund requests without admin credentials or from a different origin'
 
 it('blocks refunds when the order is already refunded, unpaid, or missing a payment intent', async () => {
   const { default: app } = await import('../src/app.js')
+  const headers = await adminSessionHeaders(app)
   const { stripe } = await import('../src/lib/stripe.js')
   const createRefund = vi.spyOn(stripe.refunds, 'create').mockRejectedValue(new Error('Unexpected request'))
 
@@ -138,6 +143,7 @@ it('blocks refunds when the order is already refunded, unpaid, or missing a paym
 
 it('uses the same Stripe idempotency key for the order from the browser and API', async () => {
   const { default: app } = await import('../src/app.js')
+  const headers = await adminSessionHeaders(app)
   const { stripe } = await import('../src/lib/stripe.js')
   const createRefund = vi.spyOn(stripe.refunds, 'create').mockImplementation(async () => {
     return { id: 're_test_notebook', status: 'pending' } as Awaited<ReturnType<typeof stripe.refunds.create>>
@@ -164,6 +170,7 @@ it('uses the same Stripe idempotency key for the order from the browser and API'
 
 it('records a full successful refund immediately, without waiting for a webhook', async () => {
   const { default: app } = await import('../src/app.js')
+  const headers = await adminSessionHeaders(app)
   const { stripe } = await import('../src/lib/stripe.js')
   vi.spyOn(stripe.refunds, 'create').mockResolvedValue({
     id: 're_test_notebook',
@@ -183,6 +190,7 @@ it('records a full successful refund immediately, without waiting for a webhook'
 
 it('recovers a missed refund from order details without creating another refund', async () => {
   const { default: app } = await import('../src/app.js')
+  const headers = await adminSessionHeaders(app)
   const { stripe } = await import('../src/lib/stripe.js')
   const create = vi.spyOn(stripe.refunds, 'create').mockRejectedValue(new Error('Unexpected refund'))
   const list = vi.spyOn(stripe.refunds, 'list').mockReturnValue((async function* () {
@@ -217,6 +225,7 @@ it('recovers a missed refund from order details without creating another refund'
 
 it('keeps the order paid when the refund balance is pending or failed', async () => {
   const { default: app } = await import('../src/app.js')
+  const headers = await adminSessionHeaders(app)
   const { stripe } = await import('../src/lib/stripe.js')
   vi.spyOn(stripe.refunds, 'list').mockReturnValue((async function* () {
     yield { status: 'succeeded', currency: 'usd', amount: 350 }

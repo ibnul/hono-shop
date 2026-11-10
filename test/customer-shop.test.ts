@@ -1,5 +1,6 @@
 import type Stripe from 'stripe'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { adminSessionHeaders } from './helpers/admin-session.js'
 
 const db = vi.hoisted(() => ({
   product: { findMany: vi.fn(), findUnique: vi.fn() },
@@ -23,7 +24,6 @@ vi.mock('../src/lib/auth.js', () => ({
 
 const origin = 'http://localhost:3000'
 const customerHeaders = { origin, 'x-test-user': 'user-1' }
-const adminHeaders = { origin, authorization: `Basic ${btoa('admin:test-admin-token-123456')}` }
 const order = {
   id: 'order-1', userId: 'user-1', productId: 'mug', productName: 'Mug', quantity: 1,
   amount: 950, status: 'paid', paymentIntentId: 'pi_test_mug', sessionId: null,
@@ -141,6 +141,7 @@ it('saves and removes wishlist items for the signed-in customer', async () => {
 
 it('stores a valid defect attachment and limits the download to admins', async () => {
   const { default: app } = await import('../src/app.js')
+  const adminHeaders = await adminSessionHeaders(app)
   const url = '/account/orders/order-1/refund'
   const bad = new FormData()
   bad.set('reason', request.reason)
@@ -159,8 +160,8 @@ it('stores a valid defect attachment and limits the download to admins', async (
   })
 
   const evidenceUrl = '/admin/refund-requests/request-1/evidence'
-  expect((await app.request(evidenceUrl, { headers: customerHeaders })).status).toBe(401)
-  expect((await app.request(`${evidenceUrl}?preview=1`, { headers: customerHeaders })).status).toBe(401)
+  expect((await app.request(evidenceUrl, { headers: customerHeaders })).status).toBe(303)
+  expect((await app.request(`${evidenceUrl}?preview=1`, { headers: customerHeaders })).status).toBe(303)
   expect(db.refundEvidence.findUnique).not.toHaveBeenCalled()
 
   db.refundEvidence.findUnique.mockResolvedValue({ content: jpeg, mimeType: 'image/jpeg' })
@@ -183,6 +184,7 @@ it('stores a valid defect attachment and limits the download to admins', async (
 
 it('claims an approval, uses the existing Stripe refund key, and updates the order and request', async () => {
   const { default: app } = await import('../src/app.js')
+  const adminHeaders = await adminSessionHeaders(app)
   const { stripe } = await import('../src/lib/stripe.js')
   vi.spyOn(stripe.refunds, 'list').mockReturnValue((async function* () {})() as unknown as ReturnType<typeof stripe.refunds.list>)
   const create = vi.spyOn(stripe.refunds, 'create').mockResolvedValue({
@@ -206,6 +208,7 @@ it('claims an approval, uses the existing Stripe refund key, and updates the ord
 
 it('rejects a request with a customer-visible reason without contacting Stripe', async () => {
   const { default: app } = await import('../src/app.js')
+  const adminHeaders = await adminSessionHeaders(app)
   const { stripe } = await import('../src/lib/stripe.js')
   const create = vi.spyOn(stripe.refunds, 'create').mockRejectedValue(new Error('Unexpected refund'))
   const reason = 'The damage does not match this order.'
@@ -226,6 +229,7 @@ it('rejects a request with a customer-visible reason without contacting Stripe',
 
 it('keeps an in-progress Stripe refund in review and never submits another while it is pending', async () => {
   const { default: app } = await import('../src/app.js')
+  const adminHeaders = await adminSessionHeaders(app)
   const { stripe } = await import('../src/lib/stripe.js')
   db.refundRequest.findUnique.mockResolvedValue({ ...request, status: 'processing', stripeRefundId: 're_pending' })
   vi.spyOn(stripe.refunds, 'list').mockReturnValue((async function* () {
@@ -245,6 +249,7 @@ it('keeps an in-progress Stripe refund in review and never submits another while
 
 it('renders a video preview and serves byte ranges for playback', async () => {
   const { default: app } = await import('../src/app.js')
+  const adminHeaders = await adminSessionHeaders(app)
   db.refundRequest.findUnique.mockResolvedValue({ ...request, evidence: { mimeType: 'video/mp4' } })
   const video = Uint8Array.from({ length: 16 }, (_, index) => index)
   db.refundEvidence.findUnique.mockResolvedValue({ content: video, mimeType: 'video/mp4' })

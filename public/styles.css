@@ -95,10 +95,14 @@ input[type="number"] {
 
 .site-header { justify-content: space-between; }
 
+.site-links { margin-inline-start: auto; }
+
 .site-links a {
   color: var(--text);
   font-weight: 600;
 }
+
+.site-links .btn { color: #fff; }
 
 .account-card { max-width: 440px; }
 

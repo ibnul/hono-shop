@@ -56,6 +56,6 @@ NODE_ENV=production pm2 start dist/index.js --name hono-shop
 pm2 save
 ```
 
-For a new demo database, run `npx tsx prisma/seed.ts` to add sample products. Verify the storefront over HTTPS, customer registration and sign-in at `/account`, and the Basic Auth prompt at `/admin/products` (username `admin`). Complete a Stripe sandbox checkout and verify the order changes to Paid after the webhook arrives.
+For a new demo database, run `npx tsx prisma/seed.ts` to add sample products. Verify the storefront over HTTPS and customer registration and sign-in at `/account`. Sign in at `/admin/login` with username `admin` and the configured `ADMIN_TOKEN`. Admin sessions last up to eight hours and are cleared when the app process restarts. Complete a Stripe sandbox checkout and verify the order changes to Paid after the webhook arrives.
 
 [CloudPanel Node.js settings](https://www.cloudpanel.io/docs/v2/frontend-area/settings/) · [CloudPanel Vhost Editor](https://www.cloudpanel.io/docs/v2/frontend-area/vhost/) · [Stripe webhooks](https://docs.stripe.com/webhooks)
