@@ -1,8 +1,7 @@
 import { isIP } from 'node:net'
 import { Hono } from 'hono'
 import { logger } from 'hono/logger'
-import { basicAuth } from 'hono/basic-auth'
-import { adminEnabled, env, trustLocalHttpsProxy } from './env.js'
+import { adminEnabled, trustLocalHttpsProxy } from './env.js'
 import { authIpHeader, customerAuth } from './lib/auth.js'
 import { prisma } from './lib/prisma.js'
 import products from './routes/products.js'
@@ -18,9 +17,7 @@ import { serveStatic } from '@hono/node-server/serve-static'
 import pages from './routes/pages.js'
 import { createAccountRoutes } from './routes/account.js'
 import webhook from './routes/webhook.js'
-import adminProducts from './routes/adminProducts.js'
-import adminOrders from './routes/adminOrders.js'
-import adminRefundRequests from './routes/adminRefundRequests.js'
+import admin from './routes/admin.js'
 
 
 
@@ -51,15 +48,6 @@ api.route('/checkout', checkout)
 app.route('/', api)
 app.route('/webhook', webhook)
 if (adminEnabled) {
-  const admin = new Hono()
-  admin.use('*', async (c, next) => {
-    c.header('Cache-Control', 'no-store')
-    await next()
-  })
-  admin.use('*', basicAuth({ username: 'admin', password: env.ADMIN_TOKEN, realm: 'Hono Shop Admin' }))
-  admin.route('/products', adminProducts)
-  admin.route('/orders', adminOrders)
-  admin.route('/refund-requests', adminRefundRequests)
   app.route('/admin', admin)
 }
 if (customerAuth) {

@@ -1,7 +1,7 @@
 import type { OrderStatus, RefundRequestStatus } from '../../generated/prisma/client.js'
 import type { Order } from '../../store/orders.js'
 import { OrderItems } from '../orderItems.js'
-import { refundRequestLabels } from '../customerShop.js'
+import { refundRequestLabels } from '../refundRequestLabels.js'
 import { AdminLayout } from './layout.js'
 
 type QueueItem = {

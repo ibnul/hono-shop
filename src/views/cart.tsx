@@ -1,5 +1,6 @@
 import { maxCartQuantity } from '../lib/cart.js'
 import { Layout } from './layout.js'
+import type { AccountNav } from './layout.js'
 
 type CartRow = {
   id: string
@@ -7,10 +8,10 @@ type CartRow = {
   product?: { name: string; price: number }
 }
 
-export const ShoppingCart = ({ rows, error, showAccount, checkoutAttempt }: {
+export const ShoppingCart = ({ rows, error, accountNav, checkoutAttempt }: {
   rows: CartRow[]
   error?: string
-  showAccount: boolean
+  accountNav?: AccountNav
   checkoutAttempt: string
 }) => {
   const count = rows.reduce((total, row) => total + row.quantity, 0)
@@ -18,7 +19,7 @@ export const ShoppingCart = ({ rows, error, showAccount, checkoutAttempt }: {
   const subtotal = rows.reduce((total, row) => total + (row.product?.price ?? 0) * row.quantity, 0)
 
   return (
-    <Layout title="Shopping cart" showAccount={showAccount} cartCount={count}>
+    <Layout title="Shopping cart" accountNav={accountNav} cartCount={count}>
       <section class="card">
         <h1>Shopping cart</h1>
         {error && <p class="account-error" role="alert">{error}</p>}

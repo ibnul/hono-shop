@@ -1,5 +1,6 @@
 import { Hono } from 'hono'
 import { csrf } from 'hono/csrf'
+import { HTTPException } from 'hono/http-exception'
 import { z } from 'zod'
 import { env } from '../env.js'
 import { OrderStatus } from '../generated/prisma/client.js'
@@ -12,20 +13,32 @@ import { AdminOrderDetail, AdminOrders } from '../views/admin/orders.js'
 
 const app = new Hono()
 const statusFilter = z.enum(['all', ...Object.values(OrderStatus)])
-const orderQuery = z.object({ status: statusFilter.default('all') })
+const orderQuery = z.object({
+  status: statusFilter.default('all'),
+  customer: z.string().min(1).max(191).optional(),
+})
 const limit = 50
 const adminCsrf = csrf({ origin: new URL(env.APP_URL).origin })
 
 app.get('/', validate('query', orderQuery), async (c) => {
-  const { status } = c.req.valid('query')
+  const { status, customer: customerId } = c.req.valid('query')
+  const customer = customerId ? await prisma.user.findUnique({
+    where: { id: customerId },
+    select: { id: true, name: true, email: true },
+  }) : undefined
+  if (customerId && !customer) throw new HTTPException(404, { message: 'Customer not found' })
+
   const orders = await prisma.order.findMany({
-    where: status === 'all' ? {} : { status },
+    where: {
+      ...(status !== 'all' && { status }),
+      ...(customerId && { userId: customerId }),
+    },
     select: { id: true, productName: true, quantity: true, amount: true, status: true, createdAt: true, paymentIntentId: true },
     orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
     take: limit,
   })
 
-  return c.html(<AdminOrders orders={orders} status={status} limit={limit} />)
+  return c.html(<AdminOrders orders={orders} status={status} limit={limit} customer={customer ?? undefined} />)
 })
 
 app.get('/:id', async (c) => {

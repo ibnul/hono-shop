@@ -4,6 +4,7 @@ import { Layout } from '../layout.js'
 const links = [
   { page: 'products', label: 'Products', href: '/admin/products' },
   { page: 'orders', label: 'Orders', href: '/admin/orders' },
+  { page: 'customers', label: 'Customers', href: '/admin/customers' },
   { page: 'refunds', label: 'Refund requests', href: '/admin/refund-requests' },
 ] as const
 
@@ -26,6 +27,9 @@ export const AdminLayout = ({ page, title, children }: AdminLayoutProps) => (
           {link.label}
         </a>
       ))}
+      <form method="post" action="/admin/logout" class="ml-auto">
+        <button type="submit" class="account-secondary">Log out</button>
+      </form>
     </nav>
     {children}
   </Layout>

@@ -1,7 +1,7 @@
 import { Layout } from './layout.js'
 
 export const AccountForm = ({ registering, error }: { registering: boolean; error?: string }) => (
-  <Layout title={registering ? 'Create account' : 'Sign in'} showAccount>
+  <Layout title={registering ? 'Create account' : 'Sign in'} accountNav="guest">
     <section class="card account-card">
       <h1>{registering ? 'Create account' : 'Sign in'}</h1>
       {error && <p class="account-error" role="alert">{error}</p>}
@@ -28,26 +28,4 @@ export const AccountForm = ({ registering, error }: { registering: boolean; erro
       <p>{registering ? <a href="/account/sign-in">Already have an account? Sign in</a> : <a href="/account/register">Create an account</a>}</p>
     </section>
   </Layout>
-)
-
-export const AccountHome = ({ user }: { user: { name: string; email: string } }) => (
-  <Layout title="My account" showAccount>
-    <section class="card account-card">
-      <h1>My account</h1>
-      <p>Signed in as <strong>{user.name}</strong></p>
-      <p>{user.email}</p>
-      <AccountLinks />
-      <form method="post" action="/account/sign-out">
-        <button type="submit" class="btn">Sign out</button>
-      </form>
-    </section>
-  </Layout>
-)
-
-export const AccountLinks = () => (
-  <nav class="account-actions" aria-label="My account">
-    <a href="/account">Account home</a>
-    <a href="/account/orders">Purchase history</a>
-    <a href="/account/wishlist">Wishlist</a>
-  </nav>
 )

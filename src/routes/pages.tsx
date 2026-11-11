@@ -33,9 +33,10 @@ app.get('/', async (c) => {
         select: { productId: true },
     }) : []
     c.header('Cache-Control', 'private, no-store')
+    const accountNav = accountsEnabled ? (customer ? 'customer' : 'guest') : undefined
 
     return c.html(
-        <Layout title="Hono Shop" showAccount={accountsEnabled} cartCount={cartQuantity(readCart(c))}>
+        <Layout title="Hono Shop" accountNav={accountNav} cartCount={cartQuantity(readCart(c))}>
             <ProductList products={products} savedIds={customer ? new Set(saved.map((item) => item.productId)) : undefined} />
         </Layout>,
     )

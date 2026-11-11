@@ -1,4 +1,4 @@
-import type { Order, OrderStatus } from '../../generated/prisma/client.js'
+import type { Order, OrderStatus, User } from '../../generated/prisma/client.js'
 import type { Order as StoredOrder } from '../../store/orders.js'
 import { OrderItems } from '../orderItems.js'
 import { AdminLayout } from './layout.js'
@@ -23,19 +23,27 @@ const orderDate = new Intl.DateTimeFormat('en-US', {
   timeZone: 'UTC',
 })
 
-export const AdminOrders = ({ orders, status, limit }: {
+export const AdminOrders = ({ orders, status, limit, customer }: {
   orders: OrderRow[]
   status: 'all' | OrderStatus
   limit: number
+  customer?: Pick<User, 'id' | 'name' | 'email'>
 }) => (
   <AdminLayout page="orders" title="Manage orders">
     <header class="mb-6">
       <h1 class="mt-1 mb-2 text-3xl font-bold tracking-tight text-slate-950">Orders</h1>
+      {customer && (
+        <p class="mb-2 text-sm text-slate-700">
+          <strong>{customer.name}</strong> · {customer.email}
+          {' · '}<a href="/admin/customers" class="text-orange-800 underline">Back to customers</a>
+        </p>
+      )}
       <p class="m-0 text-sm text-slate-600">View the latest {limit} orders for the selected status.</p>
     </header>
 
     <section class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
       <form method="get" action="/admin/orders" class="flex flex-wrap items-end gap-3 px-5 py-4 sm:px-6">
+        {customer && <input type="hidden" name="customer" value={customer.id} />}
         <label class="block text-sm font-medium text-slate-800">
           Status
           <select name="status" class="mt-1 block rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600">
