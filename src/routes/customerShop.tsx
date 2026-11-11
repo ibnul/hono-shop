@@ -8,7 +8,9 @@ import { prisma } from '../lib/prisma.js'
 import { maxEvidenceBytes, readRefundEvidence } from '../lib/refundEvidence.js'
 import { validate } from '../lib/validate.js'
 import { orderItemSelection } from '../store/orders.js'
-import { AccountOrders, CustomerRefund, Wishlist } from '../views/customerShop.js'
+import { AccountOrders } from '../views/customer/orders.js'
+import { CustomerRefund } from '../views/customer/refund.js'
+import { Wishlist } from '../views/customer/wishlist.js'
 
 const app = new Hono<{ Variables: { customerId: string } }>()
 const refundFields = { status: true, reason: true, rejectionNote: true } as const
@@ -32,12 +34,20 @@ async function findCustomerOrder(id: string, userId: string) {
 }
 
 app.get('/orders', async (c) => {
+  const search = (c.req.query('q') ?? '').trim().slice(0, 120)
+  const sort = c.req.query('sort') === 'oldest' ? 'oldest' : 'newest'
+  const direction = sort === 'oldest' ? 'asc' : 'desc'
   const orders = await prisma.order.findMany({
     where: { userId: c.get('customerId') },
     select: orderFields,
-    orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+    orderBy: [{ createdAt: direction }, { id: direction }],
   })
-  return c.html(<AccountOrders orders={orders} />)
+  const term = search.toLowerCase()
+  const matches = term ? orders.filter((order) => (
+    order.id.toLowerCase().includes(term) || order.productName.toLowerCase().includes(term) ||
+    order.items.some((item) => item.productName.toLowerCase().includes(term))
+  )) : orders
+  return c.html(<AccountOrders orders={matches} search={search} sort={sort} />)
 })
 
 app.get('/orders/:id/refund', async (c) => {

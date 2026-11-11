@@ -29,25 +29,3 @@ export const AccountForm = ({ registering, error }: { registering: boolean; erro
     </section>
   </Layout>
 )
-
-export const AccountHome = ({ user }: { user: { name: string; email: string } }) => (
-  <Layout title="My account" accountNav="customer">
-    <section class="card account-card">
-      <h1>My account</h1>
-      <p>Signed in as <strong>{user.name}</strong></p>
-      <p>{user.email}</p>
-      <AccountLinks />
-      <form method="post" action="/account/sign-out">
-        <button type="submit" class="btn">Sign out</button>
-      </form>
-    </section>
-  </Layout>
-)
-
-export const AccountLinks = () => (
-  <nav class="account-actions" aria-label="My account">
-    <a href="/account">Account home</a>
-    <a href="/account/orders">Purchase history</a>
-    <a href="/account/wishlist">Wishlist</a>
-  </nav>
-)

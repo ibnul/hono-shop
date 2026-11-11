@@ -9,10 +9,11 @@ import { AdminLogin } from '../views/admin/login.js'
 import adminOrders from './adminOrders.js'
 import adminProducts from './adminProducts.js'
 import adminRefundRequests from './adminRefundRequests.js'
+import adminCustomers from './adminCustomers.js'
 
 const admin = new Hono()
 const home = '/admin/orders'
-const adminPages = [home, '/admin/products', '/admin/refund-requests']
+const adminPages = [home, '/admin/products', '/admin/refund-requests', '/admin/customers']
 const secure = env.APP_URL.startsWith('https:')
 const cookieName = secure ? '__Host-hono-admin' : 'hono-admin'
 const cookieOptions = { path: '/', httpOnly: true, secure, sameSite: 'Strict' } as const
@@ -124,5 +125,6 @@ admin.post('/logout', (c) => {
 admin.route('/products', adminProducts)
 admin.route('/orders', adminOrders)
 admin.route('/refund-requests', adminRefundRequests)
+admin.route('/customers', adminCustomers)
 
 export default admin

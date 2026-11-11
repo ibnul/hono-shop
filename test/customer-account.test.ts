@@ -82,6 +82,9 @@ it('registers, signs out, and signs back in through the customer forms', async (
   const html = await account.text()
   expect(html).toContain('Desk Shopper')
   expect(html).toContain('shopper@example.com')
+  expect(html).toContain('data-customer-tab="home" aria-current="page"')
+  expect(html).toContain('data-customer-panel="home"')
+  expect(html).toContain('/public/customer-navigation.js')
   expect((await app.request('/admin/orders', { headers: { cookie: firstCookie } })).status).toBe(303)
 
   const logout = await app.request('/account/sign-out', form({}, { cookie: firstCookie }))

@@ -93,7 +93,10 @@ it('scopes purchase history and order lookups to the signed-in owner', async () 
   expect((await app.request('/account/orders')).headers.get('Location')).toBe('/account/sign-in')
   const history = await app.request('/account/orders', { headers: customerHeaders })
   expect(history.status).toBe(200)
-  expect(await history.text()).toContain('/account/orders/order-1/refund')
+  const historyHtml = await history.text()
+  expect(historyHtml).toContain('/account/orders/order-1/refund')
+  expect(historyHtml).toContain('data-customer-tab="orders" aria-current="page"')
+  expect(historyHtml).toContain('data-customer-panel="orders"')
   expect(db.order.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { userId: 'user-1' } }))
 
   const own = await app.request('/api/orders/order-1', { headers: customerHeaders })
@@ -106,6 +109,49 @@ it('scopes purchase history and order lookups to the signed-in owner', async () 
     body: JSON.stringify({ orderId: 'order-1' }),
   })).status).toBe(404)
   expect((await app.request('/account/orders/order-1/refund', { headers: other })).status).toBe(404)
+})
+
+it('renders wishlist and refund details in the shared customer layout', async () => {
+  const { default: app } = await import('../src/app.js')
+  db.wishlistItem.findMany.mockResolvedValue([])
+  const wishlist = await app.request('/account/wishlist', { headers: customerHeaders })
+  expect(wishlist.status).toBe(200)
+  const wishlistHtml = await wishlist.text()
+  expect(wishlistHtml).toContain('data-customer-tab="wishlist" aria-current="page"')
+  expect(wishlistHtml).toContain('data-customer-panel="wishlist"')
+
+  const refund = await app.request('/account/orders/order-1/refund', { headers: customerHeaders })
+  expect(refund.status).toBe(200)
+  const refundHtml = await refund.text()
+  expect(refundHtml).toContain('data-customer-tab="orders" aria-current="page"')
+  expect(refundHtml).toContain('href="/account/orders" data-customer-link="true">Back to purchase history')
+})
+
+it('searches purchase history by order reference or item name and keeps the customer scope when sorting', async () => {
+  const { default: app } = await import('../src/app.js')
+  db.order.findMany.mockResolvedValue([
+    { ...order, items: [] },
+    {
+      ...order, id: 'order-2', productName: 'Cart order', items: [
+        { productId: 'notebook', productName: 'Desk notebook', quantity: 1, unitPrice: 950 },
+      ],
+    },
+  ])
+  const matching = await app.request('/account/orders?q=NOTEBOOK&sort=oldest', { headers: customerHeaders })
+  const html = await matching.text()
+  expect(matching.status).toBe(200)
+  expect(html).toContain('Desk notebook')
+  expect(html).not.toContain('Order #order-1')
+  expect(html).toContain('value="oldest" selected')
+  expect(db.order.findMany).toHaveBeenLastCalledWith(expect.objectContaining({
+    where: { userId: 'user-1' },
+    orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+  }))
+
+  const byReference = await app.request('/account/orders?q=order-1', { headers: customerHeaders })
+  expect(await byReference.text()).toContain('Order #order-1')
+  const noMatches = await app.request('/account/orders?q=missing', { headers: customerHeaders })
+  expect(await noMatches.text()).toContain('No orders match your search.')
 })
 
 it('saves and removes wishlist items for the signed-in customer', async () => {

@@ -6,7 +6,8 @@ import { z } from 'zod'
 import { trustLocalHttpsProxy } from '../env.js'
 import { authBasePath, authIpHeader, authOrigin } from '../lib/auth.js'
 import type { customerAuth } from '../lib/auth.js'
-import { AccountForm, AccountHome } from '../views/account.js'
+import { AccountForm } from '../views/account.js'
+import { AccountHome } from '../views/customer/home.js'
 import customerShop from './customerShop.js'
 
 const email = z.email().max(191).transform((value) => value.toLowerCase())

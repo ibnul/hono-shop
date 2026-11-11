@@ -1,5 +1,5 @@
 import type { Product } from '../generated/prisma/client.js'
-import { WishlistButton } from './customerShop.js'
+import { WishlistButton } from './wishlistButton.js'
 
 type CatalogCard = Pick<Product, 'id' | 'name' | 'description' | 'price'>
 
